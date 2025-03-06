@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Azure AI | Document Intelligence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+    <link rel="apple-touch-icon-precomposed" href="/static/apple-touch-icon-precomposed.png">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'azure-blue': '#0078d4',
+                        'azure-blue-dark': '#106ebe',
+                        'azure-blue-light': '#eff6fc',
+                    }
+                }
+            }
+        }
+    </script>
+    <script>
+        // Format timestamps to a readable date format
+        function formatDate(timestamp) {
+            const date = new Date(timestamp * 1000);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+        }
+    </script>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+    <!-- Azure-style header -->
+    <header class="bg-azure-blue text-white p-2 flex items-center shadow-md">
+        <div class="flex items-center">
+            <svg class="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M21 8V20.9932C21 21.5501 20.5552 22 20.0066 22H3.9934C3.44495 22 3 21.556 3 21.0082V2.9918C3 2.45531 3.4487 2 4.00221 2H14.9968L21 8Z" stroke="currentColor" stroke-width="2"/>
+                <path d="M21 8H15V2" stroke="currentColor" stroke-width="2"/>
+            </svg>
+            <span class="font-semibold">Azure AI | Document Intelligence + GPT-4o Data Extraction Demo</span>
+        </div>
+        
+    </header>
+    
+    <!-- Main content area -->
+    <main class="flex-grow flex flex-col md:flex-row">
+        <!-- Left sidebar -->
+        <div class="w-full md:w-80 bg-white border-r border-gray-200 flex flex-col overflow-hidden">
+            <div class="p-4 border-b border-gray-200">
+                <h2 class="text-lg font-semibold text-gray-700">Document Intelligence</h2>
+                <p class="text-xs text-gray-500 mt-1">Extract structured data from invoices</p>
+            </div>
+            
+            <!-- Upload section -->
+            <div class="p-4 border-b border-gray-200">
+                <h3 class="text-sm font-semibold text-gray-700 mb-3">Upload Invoice</h3>
+                <form action="/upload" method="post" enctype="multipart/form-data" class="space-y-2">
+                    <div class="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-md p-4 hover:border-azure-blue transition-colors" id="drop-zone">
+                        <div id="file-select-area" class="flex flex-col items-center w-full">
+                            <svg class="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                            </svg>
+                            <p class="text-xs text-gray-600 mb-1">Drag & drop file here</p>
+                            <p class="text-xs text-gray-500">- or -</p>
+                            <button type="button" class="mt-2 px-3 py-1 bg-white border border-gray-300 rounded-md text-xs text-gray-700 hover:bg-gray-50" onclick="document.getElementById('file-input').click()">
+                                Browse for files
+                            </button>
+                        </div>
+                        <div id="file-display-area" class="hidden w-full">
+                            <div class="flex items-center justify-between w-full">
+                                <div class="flex items-center">
+                                    <svg class="w-6 h-6 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    <span id="selected-filename" class="text-sm truncate max-w-[160px] font-medium"></span>
+                                </div>
+                                <button type="button" id="change-file-btn" class="text-xs text-azure-blue hover:text-azure-blue-dark">
+                                    Change
+                                </button>
+                            </div>
+                        </div>
+                        <input type="file" name="file" accept=".pdf" class="hidden" id="file-input" required>
+                    </div>
+                    <button type="submit" class="w-full bg-azure-blue text-white py-2 px-3 rounded-md hover:bg-azure-blue-dark transition duration-200 flex items-center justify-center text-sm">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                        </svg>
+                        Upload Document
+                    </button>
+                </form>
+            </div>
+            
+            <!-- Previously uploaded files -->
+            <div class="overflow-y-auto flex-grow">
+                <div class="p-4 border-b border-gray-200">
+                    <h3 class="text-sm font-semibold text-gray-700">Recent Documents</h3>
+                </div>
+                <div class="p-2">
+                    {% if uploaded_files %}
+                        <ul class="space-y-2">
+                            {% for file in uploaded_files %}
+                                <li>
+                                    <a href="/view?file_path={{ file.path | urlencode }}" class="w-full flex items-start p-2 text-left text-sm rounded-md hover:bg-gray-100 {% if uploaded_file_path == file.path %}bg-azure-blue-light border border-azure-blue{% endif %}">
+                                        <svg class="w-5 h-5 mr-2 mt-0.5 flex-shrink-0 {% if uploaded_file_path == file.path %}text-azure-blue{% else %}text-gray-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                        </svg>
+                                        <div class="overflow-hidden">
+                                            <div class="truncate font-medium {% if uploaded_file_path == file.path %}text-azure-blue{% else %}text-gray-700{% endif %}">{{ file.name }}</div>
+                                            <div class="text-xs text-gray-500 truncate">{{ (file.size / 1024)|round(1) }} KB • {{ file.date|datetime }}</div>
+                                        </div>
+                                    </a>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <p class="text-sm text-gray-500">No documents uploaded yet</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main content -->
+        <div class="flex-grow p-6 overflow-auto">
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages() %}
+            {% if messages %}
+            <div class="mb-4">
+                {% for message in messages %}
+                <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-2 rounded shadow-sm" role="alert">
+                    <p class="font-medium">{{ message }}</p>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
+            {% if uploaded_file_path %}
+                <div class="mb-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-xl font-semibold text-gray-800">Selected: {{ uploaded_file_path | basename }}</h2>
+
+                            <p class="text-sm text-gray-500 mt-1">Click on "Run Analysis" button to get started</p>
+                        </div>
+                        <div class="flex space-x-3">
+                            <form action="/analyze" method="post" class="mt-0">
+                                <input type="hidden" name="file_path" value="{{ uploaded_file_path }}">
+                                
+                                <div class="flex space-x-4 items-center mt-4">
+                                    <div class="relative inline-block" x-data="{ open: false }">
+                                        <button type="button" @click="open = !open" class="flex items-center justify-between py-3 px-6 bg-white border border-gray-300 rounded-lg shadow-sm hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-azure-blue focus:ring-opacity-50 text-gray-700 font-medium transition duration-200" style="min-width: 220px;">
+                                            <div class="flex items-center">
+                                                <svg class="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                </svg>
+                                                <span class="processing-method-text">Select Processing Method</span>
+                                            </div>
+                                            <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                            </svg>
+                                        </button>
+                                        
+                                        <div class="absolute right-0 mt-2 w-72 bg-white border border-gray-200 rounded-lg shadow-lg z-10" x-show="open" @click.away="open = false" x-transition:enter="transition ease-out duration-100" x-transition:enter-start="transform opacity-0 scale-95" x-transition:enter-end="transform opacity-100 scale-100" x-transition:leave="transition ease-in duration-75" x-transition:leave-start="transform opacity-100 scale-100" x-transition:leave-end="transform opacity-0 scale-95" style="display: none;">
+                                            <div class="p-2">
+                                                <p class="text-sm font-semibold text-gray-700 px-3 py-2 border-b">Processing Method</p>
+                                                
+                                                <!-- Option 1 -->
+                                                <label class="block px-3 py-2 hover:bg-gray-50 rounded-md cursor-pointer">
+                                                    <input type="radio" name="processing_method" value="di_gpt_image" class="hidden processing-method-input">
+                                                    <div class="flex items-center">
+                                                        <div class="w-4 h-4 rounded-full border border-gray-300 flex items-center justify-center mr-2 processing-method-radio"></div>
+                                                        <div>
+                                                            <span class="text-sm font-medium text-gray-800">DI Parse + GPT-4o with Image</span>
+                                                            <p class="text-xs text-gray-500">Parse with DI, then GPT-4o with image</p>
+                                                        </div>
+                                                    </div>
+                                                </label>
+                                                
+                                                <!-- Option 2 -->
+                                                <label class="block px-3 py-2 hover:bg-gray-50 rounded-md cursor-pointer">
+                                                    <input type="radio" name="processing_method" value="di_gpt_no_image" class="hidden processing-method-input">
+                                                    <div class="flex items-center">
+                                                        <div class="w-4 h-4 rounded-full border border-gray-300 flex items-center justify-center mr-2 processing-method-radio"></div>
+                                                        <div>
+                                                            <span class="text-sm font-medium text-gray-800">DI Parse + GPT-4o (No Image)</span>
+                                                            <p class="text-xs text-gray-500">Parse with DI, then GPT-4o without image</p>
+                                                        </div>
+                                                    </div>
+                                                </label>
+                                                
+                                                <!-- Option 3 -->
+                                                <label class="block px-3 py-2 hover:bg-gray-50 rounded-md cursor-pointer">
+                                                    <input type="radio" name="processing_method" value="gpt_only" class="hidden processing-method-input">
+                                                    <div class="flex items-center">
+                                                        <div class="w-4 h-4 rounded-full border border-gray-300 flex items-center justify-center mr-2 processing-method-radio"></div>
+                                                        <div>
+                                                            <span class="text-sm font-medium text-gray-800">GPT-4o with Image Only</span>
+                                                            <p class="text-xs text-gray-500">Send image directly to GPT-4o</p>
+                                                        </div>
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <button type="submit" id="run-analysis-btn" class="bg-gray-400 text-white py-3 px-6 rounded-lg font-medium shadow-md transition duration-200 focus:outline-none focus:ring-2 focus:ring-azure-blue focus:ring-opacity-50 flex items-center justify-center cursor-not-allowed" disabled>
+                                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                        Run Analysis
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Side by side layout for document and results -->
+                <div class="flex flex-col md:flex-row gap-6">
+                    <!-- Document preview - left side -->
+                    <div class="bg-white border border-gray-200 rounded-md shadow-sm overflow-hidden md:w-1/2">
+                        <div class="border-b border-gray-200 px-4 py-3 flex justify-between items-center">
+                            <h3 class="text-sm font-medium text-gray-700">Document Preview</h3>
+                        </div>
+                        <div class="p-4 h-[800px] flex items-center justify-center bg-gray-50 overflow-auto">
+                            {% if uploaded_file_path.lower().endswith('.pdf') %}
+                                <object data="/preview?file_path={{ uploaded_file_path | urlencode }}" type="application/pdf" class="w-full h-full">
+                                    <p class="text-gray-500 text-center">PDF preview not available. <a href="/download?file_path={{ uploaded_file_path | urlencode }}" class="text-azure-blue hover:underline">Download</a> to view.</p>
+                                </object>
+                            {% else %}
+                                <div class="text-center">
+                                    <svg class="w-16 h-16 text-gray-300 mb-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    <p class="text-gray-500">Preview not available for this file type.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Results panel - right side -->
+                    <div class="md:w-1/2">
+                        {% if result %}
+                        <div class="bg-white border border-gray-200 rounded-md shadow-sm overflow-hidden h-full">
+                            <div class="border-b border-gray-200 px-4 py-3 flex justify-between items-center bg-azure-blue-light">
+                                <h3 class="text-sm font-medium text-gray-700">Extracted Invoice Data</h3>
+                                <span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">Successfully Analyzed</span>
+                            </div>
+                            <div class="p-4 overflow-auto h-[800px]">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <!-- Seller information -->
+                                    <div class="border border-gray-200 rounded-md p-4">
+                                        <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                                            <svg class="w-4 h-4 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                                            </svg>
+                                            Seller Information
+                                        </h4>
+                                        <div class="space-y-2">
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-24">Name:</span>
+                                                <span class="text-sm">{{ result.seller.name }}</span>
+                                            </div>
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-24">Address:</span>
+                                                <span class="text-sm">{{ result.seller.address }}</span>
+                                            </div>
+                                            {% if result.seller.gstin %}
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-24">GSTIN:</span>
+                                                <span class="text-sm">{{ result.seller.gstin }}</span>
+                                            </div>
+                                            {% endif %}
+                                            {% if result.seller.pan %}
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-24">PAN:</span>
+                                                <span class="text-sm">{{ result.seller.pan }}</span>
+                                            </div>
+                                            {% endif %}
+                                            {% if result.seller.tax_id %}
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-24">Tax ID:</span>
+                                                <span class="text-sm">{{ result.seller.tax_id }}</span>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Customer information -->
+                                    <div class="border border-gray-200 rounded-md p-4">
+                                        <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                                            <svg class="w-4 h-4 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                            </svg>
+                                            Customer Information
+                                        </h4>
+                                        <div class="space-y-2">
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-24">Name:</span>
+                                                <span class="text-sm">{{ result.buyer.name }}</span>
+                                            </div>
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-24">Address:</span>
+                                                <span class="text-sm">{{ result.buyer.address }}</span>
+                                            </div>
+                                            {% if result.buyer.gstin %}
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-24">GSTIN:</span>
+                                                <span class="text-sm">{{ result.buyer.gstin }}</span>
+                                            </div>
+                                            {% endif %}
+                                            {% if result.buyer.pan %}
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-24">PAN:</span>
+                                                <span class="text-sm">{{ result.buyer.pan }}</span>
+                                            </div>
+                                            {% endif %}
+                                            {% if result.buyer.tax_id %}
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-24">Tax ID:</span>
+                                                <span class="text-sm">{{ result.buyer.tax_id }}</span>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Invoice information -->
+                                    <div class="border border-gray-200 rounded-md p-4">
+                                        <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                                            <svg class="w-4 h-4 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                            </svg>
+                                            Invoice Details
+                                        </h4>
+                                        <div class="space-y-2">
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-24">Invoice #:</span>
+                                                <span class="text-sm">{{ result.invoice_number }}</span>
+                                            </div>
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-24">Date:</span>
+                                                <span class="text-sm">{{ result.invoice_date }}</span>
+                                            </div>
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-24">Due Date:</span>
+                                                <span class="text-sm">{{ result.due_date or 'Not specified' }}</span>
+                                            </div>
+                                            {% if result.payment_terms %}
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-24">Payment Terms:</span>
+                                                <span class="text-sm">{{ result.payment_terms }}</span>
+                                            </div>
+                                            {% endif %}
+                                            {% if result.po_number %}
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-24">PO Number:</span>
+                                                <span class="text-sm">{{ result.po_number }}</span>
+                                            </div>
+                                            {% endif %}
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-24">Currency:</span>
+                                                <span class="text-sm">{% if result.currency %}{{ result.currency }}{% elif result.amount_in_words and result.amount_in_words[:3] == "INR" %}INR{% else %}Not specified{% endif %}</span>
+                                            </div>
+                                            {% if result.place_of_supply %}
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-24">Place of Supply:</span>
+                                                <span class="text-sm">{{ result.place_of_supply }}</span>
+                                            </div>
+                                            {% endif %}
+                                            {% if result.reverse_charge is defined %}
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-24">Reverse Charge:</span>
+                                                <span class="text-sm">{{ result.reverse_charge }}</span>
+                                            </div>
+                                            {% endif %}
+                                            {% if result.irn %}
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-24">IRN:</span>
+                                                <span class="text-sm">{{ result.irn }}</span>
+                                            </div>
+                                            {% endif %}
+                                            {% if result.ack_number %}
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-24">ACK Number:</span>
+                                                <span class="text-sm">{{ result.ack_number }}</span>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Shipping Details -->
+                                    {% if result.shipping_details %}
+                                    <div class="border border-gray-200 rounded-md p-4">
+                                        <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                                            <svg class="w-4 h-4 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>
+                                            </svg>
+                                            Shipping Details
+                                        </h4>
+                                        <div class="space-y-2">
+                                            {% if result.shipping_details.shipped_to %}
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-24">Shipped To:</span>
+                                                <span class="text-sm">{{ result.shipping_details.shipped_to }}</span>
+                                            </div>
+                                            {% endif %}
+                                            {% if result.shipping_details.ship_to_address %}
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-24">Ship Address:</span>
+                                                <span class="text-sm">{{ result.shipping_details.ship_to_address }}</span>
+                                            </div>
+                                            {% endif %}
+                                            {% if result.shipping_details.place_of_supply %}
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-24">Place of Supply:</span>
+                                                <span class="text-sm">{{ result.shipping_details.place_of_supply }}</span>
+                                            </div>
+                                            {% endif %}
+                                            {% if result.shipping_details.transporter %}
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-24">Transporter:</span>
+                                                <span class="text-sm">{{ result.shipping_details.transporter }}</span>
+                                            </div>
+                                            {% endif %}
+                                            {% if result.shipping_details.vehicle_number %}
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-24">Vehicle No:</span>
+                                                <span class="text-sm">{{ result.shipping_details.vehicle_number }}</span>
+                                            </div>
+                                            {% endif %}
+                                            {% if result.shipping_details.dispatch_date %}
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-24">Dispatch Date:</span>
+                                                <span class="text-sm">{{ result.shipping_details.dispatch_date }}</span>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <!-- Totals -->
+                                    <div class="border border-gray-200 rounded-md p-4">
+                                        <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                                            <svg class="w-4 h-4 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                            </svg>
+                                            Amounts
+                                        </h4>
+                                        <div class="space-y-2">
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-24">Subtotal:</span>
+                                                <span class="text-sm">{{ result.subtotal }} {% if result.currency %}{{ result.currency }}{% elif result.amount_in_words and result.amount_in_words[:3] == "INR" %}INR{% endif %}</span>
+                                            </div>
+                                            
+                                            <!-- GST and other tax details -->
+                                            {% if result.tax_details is defined and result.tax_details|length > 0 %}
+                                                {% for tax in result.tax_details %}
+                                                <div class="flex">
+                                                    <span class="text-xs text-gray-500 w-24">{{ tax.tax_type if tax.tax_type else 'Tax' }} {% if tax.rate %}({{ tax.rate }}%){% endif %}:</span>
+                                                    <span class="text-sm">{{ tax.amount if tax.amount else '-' }} {% if result.currency %}{{ result.currency }}{% elif result.amount_in_words and result.amount_in_words[:3] == "INR" %}INR{% endif %}</span>
+                                                </div>
+                                                {% endfor %}
+                                            {% elif result.total_tax_amount is defined and result.total_tax_amount %}
+                                                <div class="flex">
+                                                    <span class="text-xs text-gray-500 w-24">Total Tax:</span>
+                                                    <span class="text-sm">{{ result.total_tax_amount }} {% if result.currency %}{{ result.currency }}{% elif result.amount_in_words and result.amount_in_words[:3] == "INR" %}INR{% endif %}</span>
+                                                </div>
+                                            {% elif result.tax_amount is defined and result.tax_amount %}
+                                                <div class="flex">
+                                                    <span class="text-xs text-gray-500 w-24">Tax:</span>
+                                                    <span class="text-sm">{{ result.tax_amount }} {% if result.currency %}{{ result.currency }}{% elif result.amount_in_words and result.amount_in_words[:3] == "INR" %}INR{% endif %}</span>
+                                                </div>
+                                            {% endif %}
+                                            
+                                            <div class="flex font-medium">
+                                                <span class="text-xs text-gray-500 w-24">Total:</span>
+                                                <span class="text-sm">{{ result.total_amount }} {% if result.currency %}{{ result.currency }}{% elif result.amount_in_words and result.amount_in_words[:3] == "INR" %}INR{% endif %}</span>
+                                            </div>
+                                            
+                                            {% if result.amount_in_words is defined and result.amount_in_words %}
+                                            <div class="flex text-xs text-gray-500 mt-2 pt-2 border-t border-gray-100">
+                                                <span>Amount in words: {{ result.amount_in_words }}</span>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Line items -->
+                                {% if result.line_items %}
+                                <div class="mt-6">
+                                    <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                                        <svg class="w-4 h-4 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                                        </svg>
+                                        Line Items
+                                    </h4>
+                                    <div class="mt-2 border border-gray-200 rounded-md overflow-hidden">
+                                        <table class="min-w-full divide-y divide-gray-200">
+                                            <thead class="bg-gray-50">
+                                                <tr>
+                                                    <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                                                    <th scope="col" class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                                                    <th scope="col" class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Price</th>
+                                                    {% if result.line_items[0].tax_percentage is defined %}
+                                                    <th scope="col" class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Tax %</th>
+                                                    {% endif %}
+                                                    {% if result.line_items[0].tax_amount is defined %}
+                                                    <th scope="col" class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Tax</th>
+                                                    {% endif %}
+                                                    <th scope="col" class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="bg-white divide-y divide-gray-200">
+                                                {% for item in result.line_items %}
+                                                <tr>
+                                                    <td class="px-4 py-2 text-sm text-gray-700">{{ item.description if item.description else '-' }}</td>
+                                                    <td class="px-4 py-2 text-sm text-gray-700 text-right">{{ item.quantity if item.quantity else '-' }}</td>
+                                                    <td class="px-4 py-2 text-sm text-gray-700 text-right">{{ item.unit_price if item.unit_price else '-' }}</td>
+                                                    {% if item.tax_percentage is defined and item.tax_percentage %}
+                                                    <td class="px-4 py-2 text-sm text-gray-700 text-right">{{ item.tax_percentage }}%</td>
+                                                    {% endif %}
+                                                    {% if item.tax_amount is defined %}
+                                                    <td class="px-4 py-2 text-sm text-gray-700 text-right">{{ item.tax_amount }}</td>
+                                                    {% endif %}
+                                                    <td class="px-4 py-2 text-sm text-gray-700 text-right">{{ item.amount }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
+                                <!-- Payment and Delivery Terms -->
+                                <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {% if result.payment_terms is defined and result.payment_terms %}
+                                    <div class="border border-gray-200 rounded-md p-4">
+                                        <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                                            <svg class="w-4 h-4 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+                                            </svg>
+                                            Payment Terms
+                                        </h4>
+                                        <div class="text-sm text-gray-700">
+                                            {{ result.payment_terms }}
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% if result.delivery_terms is defined and result.delivery_terms %}
+                                    <div class="border border-gray-200 rounded-md p-4">
+                                        <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                                            <svg class="w-4 h-4 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>
+                                            </svg>
+                                            Delivery Terms
+                                        </h4>
+                                        <div class="text-sm text-gray-700">
+                                            {{ result.delivery_terms }}
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Notes -->
+                                {% if result.notes is defined and result.notes %}
+                                <div class="mt-6">
+                                    <div class="border border-gray-200 rounded-md p-4">
+                                        <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                                            <svg class="w-4 h-4 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                            </svg>
+                                            Notes
+                                        </h4>
+                                        <div class="text-sm text-gray-700">
+                                            {{ result.notes }}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
+                                <!-- Bank Details -->
+                                {% if result.bank_details %}
+                                <div class="mt-6">
+                                    <div class="border border-gray-200 rounded-md p-4">
+                                        <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                                            <svg class="w-4 h-4 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+                                            </svg>
+                                            Bank Details
+                                        </h4>
+                                        <div class="space-y-2">
+                                            {% if result.bank_details.account_holder %}
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-32">Account Holder:</span>
+                                                <span class="text-sm">{{ result.bank_details.account_holder }}</span>
+                                            </div>
+                                            {% endif %}
+                                            {% if result.bank_details.bank_name %}
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-32">Bank Name:</span>
+                                                <span class="text-sm">{{ result.bank_details.bank_name }}</span>
+                                            </div>
+                                            {% endif %}
+                                            {% if result.bank_details.account_number %}
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-32">Account Number:</span>
+                                                <span class="text-sm">{{ result.bank_details.account_number }}</span>
+                                            </div>
+                                            {% endif %}
+                                            {% if result.bank_details.ifsc_code %}
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-32">IFSC Code:</span>
+                                                <span class="text-sm">{{ result.bank_details.ifsc_code }}</span>
+                                            </div>
+                                            {% endif %}
+                                            {% if result.bank_details.branch %}
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-32">Branch:</span>
+                                                <span class="text-sm">{{ result.bank_details.branch }}</span>
+                                            </div>
+                                            {% endif %}
+                                            {% if result.bank_details.swift_code %}
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-32">SWIFT Code:</span>
+                                                <span class="text-sm">{{ result.bank_details.swift_code }}</span>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
+                                <!-- Additional fields -->
+                                {% if result.additional_fields is defined and result.additional_fields %}
+                                <div class="mt-6">
+                                    <div class="border border-gray-200 rounded-md p-4">
+                                        <h4 class="text-sm font-semibold text-gray-700 mb-3">Additional Information</h4>
+                                        <div class="space-y-2">
+                                            {% for key, value in result.additional_fields.items() %}
+                                            <div class="flex">
+                                                <span class="text-xs text-gray-500 w-1/3">{{ key }}:</span>
+                                                <span class="text-sm">{{ value }}</span>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% elif error %}
+                        <!-- Error message -->
+                        <div class="bg-white border border-red-200 rounded-md shadow-sm overflow-hidden h-full">
+                            <div class="border-b border-red-200 px-4 py-3 bg-red-50">
+                                <h3 class="text-sm font-medium text-red-700">Error Processing Invoice</h3>
+                            </div>
+                            <div class="p-4">
+                                <p class="text-sm text-red-600">{{ error }}</p>
+                            </div>
+                        </div>
+                        {% else %}
+                        <!-- No analysis yet -->
+                        <div class="bg-white border border-gray-200 rounded-md shadow-sm overflow-hidden h-full flex items-center justify-center">
+                            <div class="text-center p-8">
+                                <svg class="w-16 h-16 text-gray-300 mb-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                <h3 class="text-base font-medium text-gray-700 mb-1">No Analysis Results</h3>
+                                <p class="text-sm text-gray-500">Click "Run Analysis" to extract data from this document</p>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% else %}
+                <div class="max-w-3xl mx-auto text-center p-8">
+                    <svg class="w-24 h-24 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <h1 class="text-2xl font-bold text-gray-800 mb-2">No Document Selected</h1>
+                    <p class="text-gray-500 mb-4">Upload a document from the sidebar or select an existing one to begin</p>
+                </div>
+            {% endif %}
+        </div>
+    </main>
+
+        {% if debug_mode and result %}
+        <div class="max-w-4xl mx-auto mt-8 bg-white rounded-lg shadow-md p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-semibold text-gray-800">Debug Information</h2>
+            </div>
+            
+            <div class="bg-gray-100 p-4 mb-4 rounded text-xs overflow-auto">
+                <h3 class="font-bold mb-2">Debug Info:</h3>
+                <p><strong>Available keys:</strong> {{ result.keys()|join(', ') }}</p>
+                
+                <!-- General information -->
+                <div class="mt-4">
+                    <h4 class="font-bold">Main Fields:</h4>
+                    <p><strong>invoice_number:</strong> {{ result.invoice_number }}</p>
+                    <p><strong>invoice_date:</strong> {{ result.invoice_date }}</p>
+                    <p><strong>due_date:</strong> {{ result.due_date }}</p>
+                    <p><strong>currency:</strong> {{ result.currency }}</p>
+                    <p><strong>subtotal:</strong> {{ result.subtotal }}</p>
+                    <p><strong>tax_amount:</strong> {{ result.tax_amount }}</p>
+                    <p><strong>total_amount:</strong> {{ result.total_amount }}</p>
+                </div>
+                
+                <!-- Seller info -->
+                <div class="mt-4">
+                    <h4 class="font-bold">Seller Information:</h4>
+                    {% if result.seller is defined %}
+                    <p><strong>seller keys:</strong> {{ result.seller.keys()|join(', ') }}</p>
+                    <p><strong>name:</strong> {{ result.seller.name }}</p>
+                    <p><strong>address:</strong> {{ result.seller.address }}</p>
+                    <p><strong>tax_id:</strong> {{ result.seller.tax_id }}</p>
+                    {% else %}
+                    <p>No seller information available</p>
+                    {% endif %}
+                </div>
+                
+                <!-- Customer info -->
+                <div class="mt-4">
+                    <h4 class="font-bold">Customer Information:</h4>
+                    {% if result.customer is defined %}
+                    <p><strong>customer keys:</strong> {{ result.customer.keys()|join(', ') }}</p>
+                    <p><strong>name:</strong> {{ result.customer.name }}</p>
+                    <p><strong>address:</strong> {{ result.customer.address }}</p>
+                    <p><strong>tax_id:</strong> {{ result.customer.tax_id }}</p>
+                    {% else %}
+                    <p>No customer information available</p>
+                    {% endif %}
+                </div>
+                
+                <!-- Line Items -->
+                <div class="mt-4">
+                    <h4 class="font-bold">Line Items:</h4>
+                    <p><strong>Has line_items:</strong> {{ result.line_items is defined }}</p>
+                    {% if result.line_items is defined and result.line_items|length > 0 %}
+                    <p><strong>Number of line items:</strong> {{ result.line_items|length }}</p>
+                    <p><strong>First item keys:</strong> {{ result.line_items[0].keys()|join(', ') }}</p>
+                    {% endif %}
+                </div>
+                
+                <!-- Tax Details -->
+                <div class="mt-4">
+                    <h4 class="font-bold">Tax Details:</h4>
+                    <p><strong>Has tax_details:</strong> {{ result.tax_details is defined }}</p>
+                    <p><strong>tax_details length:</strong> {{ result.tax_details|length if result.tax_details is defined else 'N/A' }}</p>
+                    <p><strong>tax_details is iterable:</strong> {% if result.tax_details is defined %}{{ result.tax_details is iterable }}{% else %}N/A{% endif %}</p>
+                    <p><strong>Has total_tax_amount:</strong> {{ result.total_tax_amount is defined }}</p>
+                    <p><strong>Has tax_amount:</strong> {{ result.tax_amount is defined }}</p>
+                    
+                    {% if result.tax_details is defined and result.tax_details|length > 0 %}
+                    <p><strong>Number of tax items:</strong> {{ result.tax_details|length }}</p>
+                    {% for tax in result.tax_details %}
+                    <p><strong>Tax item {{ loop.index }}:</strong> {{ tax }}</p>
+                    {% endfor %}
+                    {% endif %}
+                </div>
+                
+                <!-- Additional Fields -->
+                <div class="mt-4">
+                    <h4 class="font-bold">Additional Fields:</h4>
+                    <p><strong>Has additional_fields:</strong> {{ result.additional_fields is defined }}</p>
+                    {% if result.additional_fields is defined and result.additional_fields %}
+                    {% for key, value in result.additional_fields.items() %}
+                    <p><strong>{{ key }}:</strong> {{ value }}</p>
+                    {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const fileSelectArea = document.getElementById('file-select-area');
+        const fileDisplayArea = document.getElementById('file-display-area');
+        const selectedFilename = document.getElementById('selected-filename');
+        const changeFileBtn = document.getElementById('change-file-btn');
+
+        // Remove click on entire dropzone to prevent double file selection dialog
+        // Only allow clicks on the Browse button
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            dropZone.classList.add('border-azure-blue');
+        }
+
+        function unhighlight(e) {
+            dropZone.classList.remove('border-azure-blue');
+        }
+
+        dropZone.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                updateFileDisplay(files[0].name);
+            }
+        }
+        
+        // Show selected filename when a file is chosen
+        fileInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                updateFileDisplay(this.files[0].name);
+            }
+        });
+        
+        // Change file button
+        changeFileBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            fileInput.click();
+        });
+        
+        // Function to update the file display
+        function updateFileDisplay(filename) {
+            selectedFilename.textContent = filename;
+            fileSelectArea.classList.add('hidden');
+            fileDisplayArea.classList.remove('hidden');
+        }
+
+        // Alpine.js initialization (minimal version for dropdown)
+        document.addEventListener('alpine:init', () => {});
+        
+        // Processing method dropdown functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize Alpine.js (minimal implementation)
+            window.Alpine = {
+                data(callback) {
+                    return callback();
+                },
+                store: new Map()
+            };
+            
+            // Process all x-data elements
+            document.querySelectorAll('[x-data]').forEach(el => {
+                const dataFunction = new Function(`return ${el.getAttribute('x-data')}`);
+                const data = dataFunction();
+                Alpine.store.set(el, data);
+                
+                // Handle click events for dropdown toggle
+                const toggleButton = el.querySelector('[\\@click]');
+                if (toggleButton) {
+                    toggleButton.addEventListener('click', () => {
+                        const state = Alpine.store.get(el);
+                        state.open = !state.open;
+                        const dropdown = el.querySelector('[x-show]');
+                        if (dropdown) {
+                            dropdown.style.display = state.open ? 'block' : 'none';
+                        }
+                    });
+                }
+                
+                // Handle click away
+                document.addEventListener('click', (e) => {
+                    if (!el.contains(e.target)) {
+                        const state = Alpine.store.get(el);
+                        if (state && state.open) {
+                            state.open = false;
+                            const dropdown = el.querySelector('[x-show]');
+                            if (dropdown) {
+                                dropdown.style.display = 'none';
+                            }
+                        }
+                    }
+                });
+            });
+            
+            // Handle processing method selection
+            const processingMethodInputs = document.querySelectorAll('.processing-method-input');
+            const processingMethodText = document.querySelector('.processing-method-text');
+            const processingMethodRadios = document.querySelectorAll('.processing-method-radio');
+            
+            const runAnalysisBtn = document.getElementById('run-analysis-btn');
+            
+            // Check if any processing method is selected
+            function checkIfMethodSelected() {
+                return Array.from(processingMethodInputs).some(input => input.checked);
+            }
+            
+            // Function to update button state
+            function updateButtonState() {
+                if (checkIfMethodSelected()) {
+                    runAnalysisBtn.disabled = false;
+                    runAnalysisBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                    runAnalysisBtn.classList.add('bg-azure-blue', 'hover:bg-azure-blue-dark', 'transform', 'hover:scale-105', 'hover:shadow-lg');
+                } else {
+                    runAnalysisBtn.disabled = true;
+                    runAnalysisBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+                    runAnalysisBtn.classList.remove('bg-azure-blue', 'hover:bg-azure-blue-dark', 'transform', 'hover:scale-105', 'hover:shadow-lg');
+                }
+            }
+            
+            // Initial check
+            updateButtonState();
+            
+            processingMethodInputs.forEach((input, index) => {
+                input.addEventListener('change', function() {
+                    // Update the dropdown button text
+                    const label = this.closest('label').querySelector('.text-sm.font-medium').textContent;
+                    processingMethodText.textContent = label;
+                    
+                    // Update the radio button visuals
+                    processingMethodRadios.forEach(radio => {
+                        radio.innerHTML = '';
+                    });
+                    
+                    processingMethodRadios[index].innerHTML = '<div class="w-2 h-2 rounded-full bg-azure-blue"></div>';
+                    
+                    // Update the button state
+                    updateButtonState();
+                    
+                    // Close the dropdown after selection
+                    const dropdown = this.closest('[x-show]');
+                    if (dropdown) {
+                        dropdown.style.display = 'none';
+                        const stateEl = dropdown.closest('[x-data]');
+                        if (stateEl) {
+                            const state = Alpine.store.get(stateEl);
+                            if (state) state.open = false;
+                        }
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
