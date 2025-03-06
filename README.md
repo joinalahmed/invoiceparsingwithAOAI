@@ -25,21 +25,41 @@ This application uses Azure Document Intelligence and Azure OpenAI services to a
    ```
    pip install -r requirements.txt
    ```
-3. Configure environment variables by creating a `.env` file with the following content:
+3. Configure your environment variables:
+   
+   a. Copy the provided `.env.sample` file to create your own `.env` file:
+   ```
+   cp .env.sample .env
+   ```
+   
+   b. Open the `.env` file in a text editor and replace the empty quotes with your actual API keys and endpoints:
    ```
    # Azure Document Intelligence Settings
-   DOC_INTELLIGENCE_ENDPOINT=<your-document-intelligence-endpoint>
-   DOC_INTELLIGENCE_KEY=<your-document-intelligence-key>
+   DOC_INTELLIGENCE_ENDPOINT="https://your-doc-intelligence-resource.cognitiveservices.azure.com/"
+   DOC_INTELLIGENCE_KEY="your-doc-intelligence-key"
    
    # Azure OpenAI Settings
-   OPENAI_ENDPOINT=<your-openai-endpoint>
-   OPENAI_KEY=<your-openai-key>
-   DEPLOYMENT_NAME=<your-openai-deployment-name>
+   OPENAI_ENDPOINT="https://your-openai-resource.openai.azure.com"
+   OPENAI_KEY="your-openai-key"
+   DEPLOYMENT_NAME="gpt-4o"
    
    # OpenAI Library Expected Variables
-   AZURE_OPENAI_API_KEY=<your-openai-key>
-   AZURE_OPENAI_ENDPOINT=<your-openai-endpoint>
+   AZURE_OPENAI_API_KEY="your-openai-key"
+   AZURE_OPENAI_ENDPOINT="https://your-openai-resource.openai.azure.com"
    ```
+   
+   c. Note that `AZURE_OPENAI_API_KEY` should be the same as `OPENAI_KEY` and `AZURE_OPENAI_ENDPOINT` should be the same as `OPENAI_ENDPOINT`. These duplicated variables are needed due to the way the OpenAI library looks for environment variables.
+
+### Required Files
+The following files are necessary for running the application:
+
+1. **app.py** - The main Flask application file that contains the server logic
+2. **.env** - Environment variables file containing your API keys and endpoints
+3. **.env.sample** - Template file with the structure for your .env file
+4. **templates/index.html** - The HTML template for the web interface
+5. **requirements.txt** - Lists all Python dependencies
+6. **static/** - Directory for CSS, JavaScript, and static assets including screenshots
+7. **uploads/** - Directory where uploaded invoices are stored
 
 ### Running the Application
 Run the application using:
