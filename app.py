@@ -698,7 +698,8 @@ def analyze_file():
                             uploaded_file_path=file_path, 
                             debug_mode=False, 
                             uploaded_files=uploaded_files, 
-                            model_definitions=None)
+                            model_definitions=None,
+                            processing_complete=True)
     except Exception as e:
         import traceback
         print(f"Error processing file: {str(e)}")

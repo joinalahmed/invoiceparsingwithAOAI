@@ -123,6 +123,23 @@
         
         <!-- Main content -->
         <div class="flex-grow p-6 overflow-auto">
+            <!-- Progress bar (hidden by default) -->
+            <div id="progress-container" class="hidden mb-4">
+                <div class="flex items-center">
+                    <div class="flex-grow">
+                        <div class="bg-gray-200 rounded-full h-2 w-full">
+                            <div id="progress-bar" class="bg-azure-blue h-2 rounded-full" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="ml-3">
+                        <span id="progress-status" class="text-sm text-gray-600">Processing...</span>
+                    </div>
+                </div>
+                <div class="mt-1">
+                    <span id="progress-step" class="text-xs text-gray-500">Initializing...</span>
+                </div>
+            </div>
+            
             <!-- Flash Messages -->
             {% with messages = get_flashed_messages() %}
             {% if messages %}
@@ -206,11 +223,17 @@
                                     </div>
                                     
                                     <button type="submit" id="run-analysis-btn" class="bg-gray-400 text-white py-3 px-6 rounded-lg font-medium shadow-md transition duration-200 focus:outline-none focus:ring-2 focus:ring-azure-blue focus:ring-opacity-50 flex items-center justify-center cursor-not-allowed" disabled>
-                                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <!-- Default icon (play button) -->
+                                        <svg id="run-icon" class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                         </svg>
-                                        Run Analysis
+                                        <!-- Loading spinner (hidden by default) -->
+                                        <svg id="loading-spinner" class="w-5 h-5 mr-2 animate-spin hidden" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        <span id="button-text">Run Analysis</span>
                                     </button>
                                 </div>
                             </form>
@@ -780,6 +803,35 @@
     </div>
 
     <script>
+        // Check if processing is complete (set by server)
+        const processingComplete = {% if processing_complete %}true{% else %}false{% endif %};
+        
+        // If processing is complete, update the progress bar to 100%
+        if (processingComplete) {
+            const progressContainer = document.getElementById('progress-container');
+            const progressBar = document.getElementById('progress-bar');
+            const progressStatus = document.getElementById('progress-status');
+            const progressStep = document.getElementById('progress-step');
+            
+            if (progressContainer && progressBar && progressStatus && progressStep) {
+                // Show progress container if it's hidden
+                progressContainer.classList.remove('hidden');
+                
+                // Update progress to 100%
+                progressBar.style.width = '100%';
+                progressStatus.textContent = 'Complete';
+                progressStep.textContent = 'Analysis finished successfully';
+                
+                // Smoothly scroll to results section
+                setTimeout(() => {
+                    const resultsSection = document.querySelector('.rounded-md.shadow-sm.overflow-hidden.md\\:w-1\\/2:nth-child(2)');
+                    if (resultsSection) {
+                        resultsSection.scrollIntoView({ behavior: 'smooth' });
+                    }
+                }, 1000);
+            }
+        }
+        
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
         const fileSelectArea = document.getElementById('file-select-area');
@@ -921,6 +973,66 @@
             
             // Initial check
             updateButtonState();
+            
+            // Handle form submission and show progress indicators
+            const analyzeForm = document.querySelector('form[action="/analyze"]');
+            const runIcon = document.getElementById('run-icon');
+            const loadingSpinner = document.getElementById('loading-spinner');
+            const buttonText = document.getElementById('button-text');
+            const progressContainer = document.getElementById('progress-container');
+            const progressBar = document.getElementById('progress-bar');
+            const progressStatus = document.getElementById('progress-status');
+            const progressStep = document.getElementById('progress-step');
+            
+            if (analyzeForm) {
+                analyzeForm.addEventListener('submit', function(e) {
+                    // Only proceed if a processing method is selected
+                    if (!checkIfMethodSelected()) {
+                        e.preventDefault();
+                        return;
+                    }
+                    
+                    // Show loading state
+                    runIcon.classList.add('hidden');
+                    loadingSpinner.classList.remove('hidden');
+                    buttonText.textContent = 'Processing...';
+                    runAnalysisBtn.disabled = true;
+                    
+                    // Show progress bar
+                    progressContainer.classList.remove('hidden');
+                    
+                    // Simulate progress updates - in a real implementation, 
+                    // this would be updated by server responses
+                    let progress = 0;
+                    const steps = [
+                        'Initializing...',
+                        'Extracting text from document...',
+                        'Processing with Document Intelligence...',
+                        'Analyzing with GPT-4o...',
+                        'Formatting results...',
+                        'Almost done...',
+                    ];
+                    
+                    const progressInterval = setInterval(() => {
+                        // Choose a random increment between 5-15%
+                        const increment = Math.floor(Math.random() * 10) + 5;
+                        // Make sure we don't go past 95% (leave the last bit for actual completion)
+                        progress = Math.min(progress + increment, 95);
+                        
+                        // Update progress bar
+                        progressBar.style.width = `${progress}%`;
+                        
+                        // Update step text based on progress
+                        const stepIndex = Math.floor((progress / 95) * (steps.length - 1));
+                        progressStep.textContent = steps[stepIndex];
+                        
+                        // If we've reached maximum simulated progress, clear the interval
+                        if (progress >= 95) {
+                            clearInterval(progressInterval);
+                        }
+                    }, 800);
+                });
+            }
             
             processingMethodInputs.forEach((input, index) => {
                 input.addEventListener('change', function() {
