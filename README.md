@@ -19,6 +19,37 @@ This application uses Azure Document Intelligence and Azure OpenAI services to a
 - Azure Document Intelligence service
 - Azure OpenAI service with GPT-4o deployment
 
+#### Poppler Installation (Required for pdf2image)
+This project uses the `pdf2image` library which depends on Poppler. Please install it as follows:
+
+**For Windows:**
+1. Download the latest Poppler binary from the [poppler-windows releases](https://github.com/oschwartz10612/poppler-windows/releases).
+2. Unzip the downloaded archive to a location under **Program Files** (e.g., `C:\Program Files\poppler`).
+3. Add the Poppler `bin` directory (e.g., `C:\Program Files\poppler\poppler-xx\bin`) to your system PATH:
+   - Press **Win + R**, type `sysdm.cpl`, and press **Enter**.
+   - Go to the **Advanced** tab and click **Environment Variables**.
+   - Under **System variables**, select the **Path** variable and click **Edit**.
+   - Click **New** and add the path to the Poppler `bin` folder.
+   - Click **OK** to close all dialogs.
+4. To verify the installation, open a Command Prompt and run:
+   ```
+   pdftoppm -v
+   ```
+
+**For macOS:**
+1. Install Homebrew if it's not already installed. In Terminal, run:
+   ```bash
+   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+   ```
+2. Install Poppler using Homebrew:
+   ```bash
+   brew install poppler
+   ```
+3. Verify installation by running:
+   ```bash
+   pdftoppm -v
+   ```
+
 ### Virtual Environment Setup
 
 It is recommended to create a virtual environment for the project:
@@ -116,5 +147,5 @@ The application will be accessible at http://localhost:5000 in your web browser.
 
 ## Troubleshooting
 - If you encounter environment variable errors, ensure your `.env` file contains all required variables
-- For PDF rendering issues, ensure you have the necessary system dependencies for pdf2image
+- For PDF rendering issues, ensure you have the necessary system dependencies for pdf2image (see Poppler installation above)
 - Check application logs for detailed error information
