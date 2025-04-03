@@ -19,6 +19,32 @@ This application uses Azure Document Intelligence and Azure OpenAI services to a
 - Azure Document Intelligence service
 - Azure OpenAI service with GPT-4o deployment
 
+### Virtual Environment Setup
+
+It is recommended to create a virtual environment for the project:
+
+**On Windows:**
+1. Open a Command Prompt in the project directory.
+2. Create a virtual environment using:
+   ```
+   python -m venv venv
+   ```
+3. Activate the virtual environment:
+   ```
+   venv\Scripts\activate
+   ```
+
+**On macOS/Linux:**
+1. Open a Terminal in the project directory.
+2. Create a virtual environment using:
+   ```
+   python3 -m venv venv
+   ```
+3. Activate the virtual environment:
+   ```
+   source venv/bin/activate
+   ```
+
 ### Installation Steps
 1. Clone the repository
 2. Install required dependencies:
@@ -48,7 +74,7 @@ This application uses Azure Document Intelligence and Azure OpenAI services to a
    AZURE_OPENAI_ENDPOINT="https://your-openai-resource.openai.azure.com"
    ```
    
-   c. Note that `AZURE_OPENAI_API_KEY` should be the same as `OPENAI_KEY` and `AZURE_OPENAI_ENDPOINT` should be the same as `OPENAI_ENDPOINT`. These duplicated variables are needed due to the way the OpenAI library looks for environment variables.
+   c. Note that `AZURE_OPENAI_API_KEY` should be the same as `OPENAI_KEY` and `AZURE_OPENAI_ENDPOINT` should be the same as `OPENAI_ENDPOINT`.
 
 ### Required Files
 The following files are necessary for running the application:
