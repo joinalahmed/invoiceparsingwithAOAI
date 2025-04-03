@@ -145,6 +145,10 @@ The application will be accessible at http://localhost:5000 in your web browser.
 ### Processing Method Selection Dropdown
 ![Processing Method Selection](static/screens/2.png)
 
+### Results for Handwritten Multilingual tests
+![image](https://github.com/user-attachments/assets/845bd41b-4373-4a35-a072-e30d184e212c)
+
+
 ## Troubleshooting
 - If you encounter environment variable errors, ensure your `.env` file contains all required variables
 - For PDF rendering issues, ensure you have the necessary system dependencies for pdf2image (see Poppler installation above)
