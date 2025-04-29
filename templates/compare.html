@@ -1,0 +1,587 @@
+{% extends "layout.html" %}
+
+{% block head %}
+<script>
+// Global tab switching function - defined in head to avoid PDF interference
+function switchTab(tabId) {
+    console.log('Tab switching to: ' + tabId);
+    
+    // Hide all tab contents
+    var contents = document.getElementsByClassName('tab-content');
+    for (var i = 0; i < contents.length; i++) {
+        contents[i].style.display = 'none';
+    }
+    
+    // Show the selected tab content
+    var selectedContent = document.getElementById(tabId + '-content');
+    if (selectedContent) {
+        selectedContent.style.display = 'block';
+    }
+    
+    // Update tab styles
+    var tabs = document.querySelectorAll('[role="tab"]');
+    for (var i = 0; i < tabs.length; i++) {
+        tabs[i].classList.remove('active', 'text-blue-600', 'border-blue-600');
+        tabs[i].classList.add('border-transparent');
+    }
+    
+    // Activate selected tab
+    var selectedTab = document.getElementById(tabId + '-tab');
+    if (selectedTab) {
+        selectedTab.classList.add('active', 'text-blue-600', 'border-blue-600');
+        selectedTab.classList.remove('border-transparent');
+    }
+    
+    return false;
+}
+
+// Debug function for tab diagnostics
+function debugTabs() {
+    alert('Running tab diagnostics! Check the console for details.');
+    console.clear();
+    console.log('===== TAB DIAGNOSTICS =====');
+    
+    // Check all tab buttons
+    var tabs = document.querySelectorAll('[role="tab"]');
+    console.log('Found ' + tabs.length + ' tab buttons:');
+    for (var i = 0; i < tabs.length; i++) {
+        console.log('- Tab: ' + tabs[i].id);
+    }
+    
+    // Check all tab content divs
+    var contents = document.getElementsByClassName('tab-content');
+    console.log('\nFound ' + contents.length + ' content divs:');
+    for (var i = 0; i < contents.length; i++) {
+        var display = window.getComputedStyle(contents[i]).display;
+        console.log('- Content: ' + contents[i].id + ', Display: ' + display);
+    }
+    
+    // Show all tabs for testing
+    console.log('\nShowing all tabs for testing...');
+    for (var i = 0; i < contents.length; i++) {
+        contents[i].style.display = 'block';
+        contents[i].style.border = '2px solid red';
+    }
+}
+
+// JSON Modal functions
+function showJsonModal() {
+    document.getElementById('json-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden'; // Prevent scrolling
+    updateJsonContent(); // Load initial content
+}
+
+function hideJsonModal() {
+    document.getElementById('json-modal').classList.add('hidden');
+    document.body.style.overflow = 'auto'; // Allow scrolling again
+}
+
+// Update JSON content based on selected method
+function updateJsonContent() {
+    const methodSelector = document.getElementById('method-selector');
+    const selectedMethod = methodSelector.value;
+    const jsonContent = document.getElementById('json-content');
+    
+    if (jsonData[selectedMethod]) {
+        jsonContent.textContent = JSON.stringify(jsonData[selectedMethod], null, 2);
+    } else {
+        jsonContent.textContent = 'No data available for this method';
+    }
+}
+
+// Initialize everything when the window loads
+window.onload = function() {
+    // Set initial tab
+    switchTab('summary');
+    
+    // Set up JSON modal event listeners
+    document.getElementById('method-selector')?.addEventListener('change', updateJsonContent);
+    
+    // Copy JSON to clipboard
+    document.getElementById('copy-json-btn')?.addEventListener('click', function() {
+        const jsonContent = document.getElementById('json-content').textContent;
+        navigator.clipboard.writeText(jsonContent).then(function() {
+            alert('JSON copied to clipboard!');
+        }, function(err) {
+            console.error('Could not copy text: ', err);
+        });
+    });
+    
+    // Download JSON
+    document.getElementById('download-json-btn')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        const methodSelector = document.getElementById('method-selector');
+        const selectedMethod = methodSelector.value;
+        const jsonContent = document.getElementById('json-content').textContent;
+        const blob = new Blob([jsonContent], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `invoice_data_${selectedMethod}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+};
+
+// Store JSON data for each method
+var jsonData = {
+    {% for method, data in json_results.items() %}
+    "{{ method }}": {{ data | tojson }},
+    {% endfor %}
+};
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto p-4">
+    <button id="debugTabsBtn" class="fixed top-2 right-2 bg-red-500 text-white px-2 py-1 text-xs rounded z-50" onclick="debugTabs(); return false;">Debug Tabs</button>
+    <div class="max-w-7xl mx-auto">
+        <div class="mb-4 flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-gray-900">Comparison Results: {{ filename }}</h1>
+            <a href="{{ url_for('index') }}" class="px-4 py-2 text-sm bg-gray-200 hover:bg-gray-300 rounded-md text-gray-700">Back to Home</a>
+        </div>
+
+        <!-- Document information -->
+        <div class="mb-8 bg-white p-4 rounded-lg shadow">
+            <h2 class="text-lg font-medium text-gray-800 mb-2">Document Information</h2>
+            <p class="text-gray-700">Filename: <span class="font-medium">{{ filename }}</span></p>
+            <div class="mt-2">
+                <a href="{{ url_for('view_invoice', filename=filename) }}" target="_blank" class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm inline-block">Open PDF in new tab</a>
+            </div>
+        </div>
+
+        <!-- Comparison Table -->
+        <div class="bg-white p-4 rounded-lg shadow mb-8">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-medium text-gray-800">Results Comparison</h2>
+                <div>
+                    <button id="view-json-btn" class="text-xs px-3 py-1 bg-azure-blue text-white rounded hover:bg-azure-blue-dark transition-colors" 
+                            onclick="showJsonModal(); return false;">View JSON</button>
+                </div>
+            </div>
+            
+            <!-- JSON Modal -->
+            <div id="json-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+                <div class="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col">
+                    <div class="border-b border-gray-200 px-6 py-3 flex justify-between items-center">
+                        <h3 class="font-medium text-gray-700">JSON Response</h3>
+                        <div class="flex space-x-2">
+                            <select id="method-selector" class="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors">
+                                {% for method in json_results %}
+                                <option value="{{ method }}">{{ method }}</option>
+                                {% endfor %}
+                            </select>
+                            <button id="copy-json-btn" class="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors">
+                                Copy to Clipboard
+                            </button>
+                            <a id="download-json-btn" href="#" class="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors">
+                                Download JSON
+                            </a>
+                            <button onclick="hideJsonModal(); return false;" class="text-gray-500 hover:text-gray-700">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="p-6 overflow-auto flex-grow">
+                        <pre id="json-content" class="bg-gray-50 p-4 rounded text-sm overflow-auto max-h-[calc(90vh-130px)]" style="white-space: pre-wrap;"></pre>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Methods List for Tab Selection -->
+            <div class="border-b border-gray-200 mb-4">
+                <ul class="flex flex-wrap -mb-px" id="methodTabs" role="tablist">
+                    <li class="mr-2" role="presentation">
+                        <button class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300" 
+                                id="summary-tab" 
+                                onclick="switchTab('summary')" 
+                                type="button" 
+                                role="tab"
+                                aria-selected="false">Summary</button>
+                    </li>
+                    {% for method_key, method_value in results.items() %}
+                    <li class="mr-2" role="presentation">
+                        <button class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300" 
+                                id="{{ method_key }}-tab" 
+                                onclick="switchTab('{{ method_key }}')" 
+                                type="button" 
+                                role="tab"
+                                aria-selected="false">
+                                {% if method_key == 'gpt_only' %}
+                                    GPT-4o Only
+                                {% elif method_key == 'di_gpt_image' %}
+                                    DI + GPT with Image
+                                {% elif method_key == 'di_gpt_no_image' %}
+                                    DI + GPT without Image
+                                {% elif method_key == 'di_phi' %}
+                                    DI + Phi
+                                {% else %}
+                                    {{ method_key }}
+                                {% endif %}
+                        </button>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            
+            <!-- Tab content -->
+            <div id="methodTabContent">
+                <!-- Summary Tab -->
+                <div class="tab-content" id="summary-content" role="tabpanel" aria-labelledby="summary-tab" style="display: block;">
+                    <!-- Debug info -->
+                    <div class="text-xs text-gray-500 mb-2 p-1 bg-gray-100 rounded">Debug: Summary tab content - ID: summary-content</div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Field</th>
+                                    {% for method_key, method_value in results.items() %}
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        {% if method_key == 'gpt_only' %}
+                                            GPT-4o Only
+                                        {% elif method_key == 'di_gpt_image' %}
+                                            DI + GPT with Image
+                                        {% elif method_key == 'di_gpt_no_image' %}
+                                            DI + GPT without Image
+                                        {% elif method_key == 'di_phi' %}
+                                            DI + Phi
+                                        {% else %}
+                                            {{ method_key }}
+                                        {% endif %}
+                                    </th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                             <tbody class="bg-white divide-y divide-gray-200">
+                                <!-- Basic Invoice Information -->
+                                <tr class="bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 font-bold" colspan="{{ results|length + 1 }}">Basic Invoice Information</td>
+                                </tr>
+                                
+                                <!-- Invoice Number -->
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Invoice Number</td>
+                                    {% for method_key, method_value in results.items() %}
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ method_value.invoice_number or 'Not detected' }}</td>
+                                    {% endfor %}
+                                </tr>
+                                
+                                <!-- Invoice Date -->
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Invoice Date</td>
+                                    {% for method_key, method_value in results.items() %}
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ method_value.invoice_date or 'Not detected' }}</td>
+                                    {% endfor %}
+                                </tr>
+                                
+                                <!-- Due Date -->
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Due Date</td>
+                                    {% for method_key, method_value in results.items() %}
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ method_value.due_date or 'Not detected' }}</td>
+                                    {% endfor %}
+                                </tr>
+                                
+                                <!-- Payment Terms -->
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Payment Terms</td>
+                                    {% for method_key, method_value in results.items() %}
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ method_value.payment_terms or 'Not detected' }}</td>
+                                    {% endfor %}
+                                </tr>
+                                
+                                <!-- Currency -->
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Currency</td>
+                                    {% for method_key, method_value in results.items() %}
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ method_value.currency or 'Not detected' }}</td>
+                                    {% endfor %}
+                                </tr>
+                                
+                                <!-- Seller Information -->
+                                <tr class="bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 font-bold" colspan="{{ results|length + 1 }}">Seller Information</td>
+                                </tr>
+                                
+                                <!-- Seller Name -->
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Seller Name</td>
+                                    {% for method_key, method_value in results.items() %}
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ method_value.seller.name if method_value.seller else 'Not detected' }}</td>
+                                    {% endfor %}
+                                </tr>
+                                
+                                <!-- Seller Address -->
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Seller Address</td>
+                                    {% for method_key, method_value in results.items() %}
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ method_value.seller.address if method_value.seller else 'Not detected' }}</td>
+                                    {% endfor %}
+                                </tr>
+                                
+                                <!-- Seller GSTIN -->
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">GSTIN</td>
+                                    {% for method_key, method_value in results.items() %}
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ method_value.seller.gstin if method_value.seller else 'Not detected' }}</td>
+                                    {% endfor %}
+                                </tr>
+                                
+                                <!-- Buyer Information -->
+                                <tr class="bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 font-bold" colspan="{{ results|length + 1 }}">Buyer Information</td>
+                                </tr>
+                                
+                                <!-- Buyer Name -->
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Buyer Name</td>
+                                    {% for method_key, method_value in results.items() %}
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ method_value.buyer.name if method_value.buyer else 'Not detected' }}</td>
+                                    {% endfor %}
+                                </tr>
+                                
+                                <!-- Buyer Address -->
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Buyer Address</td>
+                                    {% for method_key, method_value in results.items() %}
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ method_value.buyer.address if method_value.buyer else 'Not detected' }}</td>
+                                    {% endfor %}
+                                </tr>
+                                
+                                <!-- Buyer GSTIN -->
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Buyer GSTIN</td>
+                                    {% for method_key, method_value in results.items() %}
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ method_value.buyer.gstin if method_value.buyer else 'Not detected' }}</td>
+                                    {% endfor %}
+                                </tr>
+                                
+                                <!-- Financial Information -->
+                                <tr class="bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 font-bold" colspan="{{ results|length + 1 }}">Financial Information</td>
+                                </tr>
+                                
+                                <!-- Subtotal -->
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Subtotal</td>
+                                    {% for method_key, method_value in results.items() %}
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ method_value.subtotal or 'Not detected' }}</td>
+                                    {% endfor %}
+                                </tr>
+                                
+                                <!-- Total Tax Amount -->
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Tax Amount</td>
+                                    {% for method_key, method_value in results.items() %}
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ method_value.total_tax_amount or 'Not detected' }}</td>
+                                    {% endfor %}
+                                </tr>
+                                
+                                <!-- Total Amount -->
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Amount</td>
+                                    {% for method_key, method_value in results.items() %}
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ method_value.total_amount or 'Not detected' }}</td>
+                                    {% endfor %}
+                                </tr>
+                                
+                                <!-- Amount in Words -->
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Amount in Words</td>
+                                    {% for method_key, method_value in results.items() %}
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ method_value.amount_in_words or 'Not detected' }}</td>
+                                    {% endfor %}
+                                </tr>
+                                
+                                <!-- Reference Information -->
+                                <tr class="bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 font-bold" colspan="{{ results|length + 1 }}">Reference Information</td>
+                                </tr>
+                                
+                                <!-- PO Number -->
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">PO Number</td>
+                                    {% for method_key, method_value in results.items() %}
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ method_value.po_number or 'Not detected' }}</td>
+                                    {% endfor %}
+                                </tr>
+                                
+                                <!-- GST Information -->
+                                <tr class="bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 font-bold" colspan="{{ results|length + 1 }}">GST Information</td>
+                                </tr>
+                                
+                                <!-- IRN -->
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">IRN</td>
+                                    {% for method_key, method_value in results.items() %}
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ method_value.irn or 'Not detected' }}</td>
+                                    {% endfor %}
+                                </tr>
+                                
+                                <!-- Place of Supply -->
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Place of Supply</td>
+                                    {% for method_key, method_value in results.items() %}
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ method_value.place_of_supply or 'Not detected' }}</td>
+                                    {% endfor %}
+                                </tr>
+                                
+                                <!-- Reverse Charge -->
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Reverse Charge</td>
+                                    {% for method_key, method_value in results.items() %}
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ 'Yes' if method_value.reverse_charge else 'No' }}</td>
+                                    {% endfor %}
+                                </tr>
+                                
+                                <!-- Line Items Information -->
+                                <tr class="bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 font-bold" colspan="{{ results|length + 1 }}">Line Items</td>
+                                </tr>
+                                
+                                <!-- Line Items Count -->
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Line Items Count</td>
+                                    {% for method_key, method_value in results.items() %}
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ method_value.items|length if method_value.items else '0' }}</td>
+                                    {% endfor %}
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Individual Method Tabs -->
+                {% for method_key, method_value in results.items() %}
+                <div class="tab-content" id="{{ method_key }}-content" role="tabpanel" aria-labelledby="{{ method_key }}-tab" style="display: none;">
+                    <!-- Debug info -->
+                    <div class="text-xs text-gray-500 mb-2 p-1 bg-gray-100 rounded">Debug: Tab content for {{ method_key }} - ID: {{ method_key }}-content</div>
+                    <h3 class="font-medium text-lg mb-4">
+                        {% if method_key == 'gpt_only' %}
+                            GPT-4o Only
+                        {% elif method_key == 'di_gpt_image' %}
+                            DI + GPT with Image
+                        {% elif method_key == 'di_gpt_no_image' %}
+                            DI + GPT without Image
+                        {% elif method_key == 'di_phi' %}
+                            DI + Phi
+                        {% else %}
+                            {{ method_key }}
+                        {% endif %}
+                        Results
+                    </h3>
+                    
+                    <!-- Method-specific result details -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-gray-50 p-4 rounded-md">
+                            <h4 class="font-medium text-md mb-2">Invoice Details</h4>
+                            <ul class="space-y-2">
+                                <li><span class="font-medium">Invoice Number:</span> {{ method_value.invoice_number or 'Not detected' }}</li>
+                                <li><span class="font-medium">Invoice Date:</span> {{ method_value.invoice_date or 'Not detected' }}</li>
+                                <li><span class="font-medium">Due Date:</span> {{ method_value.due_date or 'Not detected' }}</li>
+                                <li><span class="font-medium">Currency:</span> {{ method_value.currency or 'Not detected' }}</li>
+                                <li><span class="font-medium">Subtotal:</span> {{ method_value.subtotal or 'Not detected' }}</li>
+                                <li><span class="font-medium">Total Tax Amount:</span> {{ method_value.total_tax_amount or 'Not detected' }}</li>
+                                <li><span class="font-medium">Total Amount:</span> {{ method_value.total_amount or 'Not detected' }}</li>
+                                <li><span class="font-medium">Amount in Words:</span> {{ method_value.amount_in_words or 'Not detected' }}</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="bg-gray-50 p-4 rounded-md">
+                            <h4 class="font-medium text-md mb-2">Seller Information</h4>
+                            {% if method_value.seller %}
+                            <ul class="space-y-2">
+                                <li><span class="font-medium">Name:</span> {{ method_value.seller.name or 'Not detected' }}</li>
+                                <li><span class="font-medium">Address:</span> {{ method_value.seller.address or 'Not detected' }}</li>
+                                <li><span class="font-medium">GSTIN:</span> {{ method_value.seller.gstin or 'Not detected' }}</li>
+                                <li><span class="font-medium">PAN:</span> {{ method_value.seller.pan or 'Not detected' }}</li>
+                                <li><span class="font-medium">Contact Details:</span> {{ method_value.seller.contact_details or 'Not detected' }}</li>
+                            </ul>
+                            {% else %}
+                            <p class="text-gray-500">No seller information detected</p>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="bg-gray-50 p-4 rounded-md">
+                            <h4 class="font-medium text-md mb-2">Buyer Information</h4>
+                            {% if method_value.buyer %}
+                            <ul class="space-y-2">
+                                <li><span class="font-medium">Name:</span> {{ method_value.buyer.name or 'Not detected' }}</li>
+                                <li><span class="font-medium">Address:</span> {{ method_value.buyer.address or 'Not detected' }}</li>
+                                <li><span class="font-medium">GSTIN:</span> {{ method_value.buyer.gstin or 'Not detected' }}</li>
+                                <li><span class="font-medium">PAN:</span> {{ method_value.buyer.pan or 'Not detected' }}</li>
+                                <li><span class="font-medium">Contact Details:</span> {{ method_value.buyer.contact_details or 'Not detected' }}</li>
+                            </ul>
+                            {% else %}
+                            <p class="text-gray-500">No buyer information detected</p>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="bg-gray-50 p-4 rounded-md">
+                            <h4 class="font-medium text-md mb-2">Tax Details</h4>
+                            {% if method_value.tax_details and method_value.tax_details|length > 0 %}
+                            <ul class="space-y-2">
+                                {% for tax in method_value.tax_details %}
+                                <li>
+                                    <span class="font-medium">{{ tax.tax_type or 'Unknown Tax' }}:</span> 
+                                    Rate: {{ tax.rate or 'N/A' }}%, 
+                                    Amount: {{ tax.amount or 'N/A' }}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}
+                            <p class="text-gray-500">No tax details detected</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Line Items -->
+                    <div class="mt-6">
+                        <h4 class="font-medium text-md mb-2">Line Items</h4>
+                        {% if method_value.items and method_value.items|length > 0 %}
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">HSN/SAC</th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Price</th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tax %</th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    {% for item in method_value.items %}
+                                    <tr>
+                                        <td class="px-4 py-3 text-sm text-gray-500">{{ item.description or 'N/A' }}</td>
+                                        <td class="px-4 py-3 text-sm text-gray-500">{{ item.hsn_sac or 'N/A' }}</td>
+                                        <td class="px-4 py-3 text-sm text-gray-500">{{ item.quantity or 'N/A' }}</td>
+                                        <td class="px-4 py-3 text-sm text-gray-500">{{ item.unit or 'N/A' }}</td>
+                                        <td class="px-4 py-3 text-sm text-gray-500">{{ item.unit_price or 'N/A' }}</td>
+                                        <td class="px-4 py-3 text-sm text-gray-500">{{ item.tax_percentage or 'N/A' }}</td>
+                                        <td class="px-4 py-3 text-sm text-gray-500">{{ item.amount or 'N/A' }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <p class="text-gray-500">No line items detected</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts moved to head section -->
+{% endblock %}
