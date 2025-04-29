@@ -1,0 +1,107 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="container mx-auto p-4">
+    <div class="max-w-4xl mx-auto">
+        <div class="mb-4 flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-gray-900">Settings</h1>
+            <a href="{{ url_for('index') }}" class="px-4 py-2 text-sm bg-gray-200 hover:bg-gray-300 rounded-md text-gray-700">Back to Home</a>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+            <div class="border-b border-gray-200 px-4 py-3 bg-azure-blue-light">
+                <h2 class="text-lg font-medium text-gray-700">API Configuration</h2>
+            </div>
+            <div class="p-6">
+                <form method="POST" action="{{ url_for('save_settings') }}">
+                    <div class="space-y-6">
+                        <!-- Azure Document Intelligence Settings -->
+                        <div class="border-b border-gray-200 pb-6">
+                            <h3 class="text-md font-medium text-gray-900 mb-4">Azure Document Intelligence</h3>
+                            <div class="grid grid-cols-1 gap-4">
+                                <div>
+                                    <label for="doc_intelligence_endpoint" class="block text-sm font-medium text-gray-700 mb-1">Endpoint</label>
+                                    <input type="text" name="doc_intelligence_endpoint" id="doc_intelligence_endpoint" 
+                                        class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-azure-blue focus:border-azure-blue sm:text-sm"
+                                        value="{{ settings.doc_intelligence_endpoint }}" placeholder="https://your-resource.cognitiveservices.azure.com/">
+                                    <p class="mt-1 text-xs text-gray-500">Azure Document Intelligence API endpoint URL</p>
+                                </div>
+                                <div>
+                                    <label for="doc_intelligence_key" class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+                                    <input type="password" name="doc_intelligence_key" id="doc_intelligence_key" 
+                                        class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-azure-blue focus:border-azure-blue sm:text-sm"
+                                        value="{{ settings.doc_intelligence_key }}" placeholder="Your API key">
+                                    <p class="mt-1 text-xs text-gray-500">Your Azure Document Intelligence API key</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- OpenAI API Settings -->
+                        <div class="border-b border-gray-200 pb-6">
+                            <h3 class="text-md font-medium text-gray-900 mb-4">OpenAI API</h3>
+                            <div class="grid grid-cols-1 gap-4">
+                                <div>
+                                    <label for="openai_endpoint" class="block text-sm font-medium text-gray-700 mb-1">Endpoint</label>
+                                    <input type="text" name="openai_endpoint" id="openai_endpoint" 
+                                        class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-azure-blue focus:border-azure-blue sm:text-sm"
+                                        value="{{ settings.openai_endpoint }}" placeholder="https://your-resource.openai.azure.com/">
+                                    <p class="mt-1 text-xs text-gray-500">Azure OpenAI API endpoint URL</p>
+                                </div>
+                                <div>
+                                    <label for="openai_key" class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+                                    <input type="password" name="openai_key" id="openai_key" 
+                                        class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-azure-blue focus:border-azure-blue sm:text-sm"
+                                        value="{{ settings.openai_key }}" placeholder="Your API key">
+                                    <p class="mt-1 text-xs text-gray-500">Your OpenAI API key</p>
+                                </div>
+                                <div>
+                                    <label for="deployment_name" class="block text-sm font-medium text-gray-700 mb-1">Deployment Name</label>
+                                    <input type="text" name="deployment_name" id="deployment_name" 
+                                        class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-azure-blue focus:border-azure-blue sm:text-sm"
+                                        value="{{ settings.deployment_name }}" placeholder="e.g., gpt-4o">
+                                    <p class="mt-1 text-xs text-gray-500">Your OpenAI deployment name</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- General Settings -->
+                        <div>
+                            <h3 class="text-md font-medium text-gray-900 mb-4">General Settings</h3>
+                            <div class="grid grid-cols-1 gap-4">
+                                <div>
+                                    <label for="default_processing_method" class="block text-sm font-medium text-gray-700 mb-1">Default Processing Method</label>
+                                    <select name="default_processing_method" id="default_processing_method" 
+                                        class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-azure-blue focus:border-azure-blue sm:text-sm">
+                                        <option value="di_gpt_image" {% if settings.default_processing_method == 'di_gpt_image' %}selected{% endif %}>Document Intelligence + GPT with Image</option>
+                                        <option value="di_gpt_no_image" {% if settings.default_processing_method == 'di_gpt_no_image' %}selected{% endif %}>Document Intelligence + GPT without Image</option>
+                                        <option value="gpt_only" {% if settings.default_processing_method == 'gpt_only' %}selected{% endif %}>GPT Only</option>
+                                        <option value="di_phi" {% if settings.default_processing_method == 'di_phi' %}selected{% endif %}>Document Intelligence + Phi</option>
+                                    </select>
+                                    <p class="mt-1 text-xs text-gray-500">The default processing method for invoice analysis</p>
+                                </div>
+                                <div class="flex items-start">
+                                    <div class="flex items-center h-5">
+                                        <input type="checkbox" name="cache_enabled" id="cache_enabled" 
+                                            class="focus:ring-azure-blue h-4 w-4 text-azure-blue border-gray-300 rounded"
+                                            {% if settings.cache_enabled %}checked{% endif %}>
+                                    </div>
+                                    <div class="ml-3 text-sm">
+                                        <label for="cache_enabled" class="font-medium text-gray-700">Enable Caching</label>
+                                        <p class="text-gray-500">Cache API responses to improve performance and reduce costs</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-8 flex justify-end">
+                        <button type="submit" class="px-4 py-2 bg-azure-blue hover:bg-azure-blue-dark text-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-azure-blue">
+                            Save Settings
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

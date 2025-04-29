@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Azure AI | Document Intelligence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+    <link rel="apple-touch-icon-precomposed" href="/static/apple-touch-icon-precomposed.png">
+    
+    <!-- Shepherd.js for guided tours -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shepherd.js@10.0.1/dist/css/shepherd.css"/>
+    <script src="https://cdn.jsdelivr.net/npm/shepherd.js@10.0.1/dist/js/shepherd.min.js"></script>
+    
+    <!-- Tippy.js for tooltips -->
+    <script src="https://unpkg.com/@popperjs/core@2"></script>
+    <script src="https://unpkg.com/tippy.js@6"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'azure-blue': '#0078d4',
+                        'azure-blue-dark': '#106ebe',
+                        'azure-blue-light': '#eff6fc',
+                    }
+                }
+            }
+        }
+    </script>
+    <script>
+        // Format timestamps to a readable date format
+        function formatDate(timestamp) {
+            const date = new Date(timestamp * 1000);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+        }
+    </script>
+    {% block head %}{% endblock %}
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+    <!-- Azure-style header -->
+    <header class="bg-azure-blue text-white p-2 flex items-center justify-between shadow-md">
+        <div class="flex items-center">
+            <svg class="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M21 8V20.9932C21 21.5501 20.5552 22 20.0066 22H3.9934C3.44495 22 3 21.556 3 21.0082V2.9918C3 2.45531 3.4487 2 4.00221 2H14.9968L21 8Z" stroke="currentColor" stroke-width="2"/>
+                <path d="M21 8H15V2" stroke="currentColor" stroke-width="2"/>
+            </svg>
+            <span class="font-semibold">Azure AI | Document Intelligence + GPT-4o Data Extraction Demo</span>
+        </div>
+        
+        <!-- Settings Menu -->
+        <div class="flex space-x-4">
+            <!-- Search link -->
+            <a href="{{ url_for('search') }}" class="flex items-center text-white hover:text-gray-200 focus:outline-none" id="search-link" data-tooltip="Search processed invoices">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+                <span class="ml-1">Search</span>
+            </a>
+            
+            <!-- Settings link -->
+            <a href="{{ url_for('settings') }}" class="flex items-center text-white hover:text-gray-200 focus:outline-none" id="settings-link" data-tooltip="Configure application settings">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+                <span class="ml-1">Settings</span>
+            </a>
+            
+            <!-- Menu dropdown -->
+            <div class="relative" x-data="{ settingsOpen: false }">
+                <button @click="settingsOpen = !settingsOpen" class="flex items-center text-white hover:text-gray-200 focus:outline-none" id="menu-button" data-tooltip="Quick actions">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                    <span class="ml-1">Menu</span>
+                </button>
+            
+            <div x-show="settingsOpen" @click.away="settingsOpen = false" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 py-1" x-transition:enter="transition ease-out duration-100" x-transition:enter-start="transform opacity-0 scale-95" x-transition:enter-end="transform opacity-100 scale-100" x-transition:leave="transition ease-in duration-75" x-transition:leave-start="transform opacity-100 scale-100" x-transition:leave-end="transform opacity-0 scale-95" style="display: none;">
+                
+                <!-- Clear all cache -->
+                <form method="POST" action="/clear-cache" class="block w-full">
+                    <button type="submit" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left">
+                        <svg class="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                        Clear All Cache
+                    </button>
+                </form>
+            </div>
+        </div>
+    </header>
+    
+    <!-- Main content area -->
+    <main class="flex-grow">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- Footer -->
+    <footer class="bg-gray-100 py-3 border-t border-gray-200">
+        <div class="container mx-auto px-4">
+            <div class="text-center text-gray-500 text-xs">
+                &copy; 2025 Azure AI. Document Intelligence + GPT-4o Data Extraction Demo.
+            </div>
+        </div>
+    </footer>
+    
+    {% block scripts %}{% endblock %}
+    
+    <!-- Initialize tooltips and guided tour -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize tooltips
+            tippy('[data-tooltip]', {
+                content: function(reference) {
+                    return reference.getAttribute('data-tooltip');
+                },
+                placement: 'bottom',
+                arrow: true,
+                theme: 'light-border'
+            });
+            
+            // Initialize Shepherd tour
+            const tour = new Shepherd.Tour({
+                useModalOverlay: true,
+                defaultStepOptions: {
+                    cancelIcon: {
+                        enabled: true
+                    },
+                    classes: 'shadow-md bg-azure-blue-light',
+                    scrollTo: true
+                }
+            });
+            
+            // Add steps to the tour
+            tour.addStep({
+                id: 'welcome',
+                text: 'Welcome to the Invoice Processing Application! This tour will guide you through the main features.',
+                attachTo: {
+                    element: 'header',
+                    on: 'bottom'
+                },
+                buttons: [
+                    {
+                        action() {
+                            return tour.cancel();
+                        },
+                        classes: 'bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-1 px-3 rounded shadow',
+                        text: 'Skip'
+                    },
+                    {
+                        action() {
+                            return tour.next();
+                        },
+                        classes: 'bg-azure-blue hover:bg-azure-blue-dark text-white font-semibold py-1 px-3 rounded shadow',
+                        text: 'Next'
+                    }
+                ]
+            });
+            
+            tour.addStep({
+                id: 'upload',
+                text: 'Start by uploading your invoice file here. We support PDF, JPG, and PNG formats.',
+                attachTo: {
+                    element: '#file-upload-container',
+                    on: 'bottom'
+                },
+                buttons: [
+                    {
+                        action() {
+                            return tour.back();
+                        },
+                        classes: 'bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-1 px-3 rounded shadow',
+                        text: 'Back'
+                    },
+                    {
+                        action() {
+                            return tour.next();
+                        },
+                        classes: 'bg-azure-blue hover:bg-azure-blue-dark text-white font-semibold py-1 px-3 rounded shadow',
+                        text: 'Next'
+                    }
+                ]
+            });
+            
+            tour.addStep({
+                id: 'search',
+                text: 'Use the search feature to find previously processed invoices by vendor, amount, date or invoice number.',
+                attachTo: {
+                    element: '#search-link',
+                    on: 'bottom'
+                },
+                buttons: [
+                    {
+                        action() {
+                            return tour.back();
+                        },
+                        classes: 'bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-1 px-3 rounded shadow',
+                        text: 'Back'
+                    },
+                    {
+                        action() {
+                            return tour.next();
+                        },
+                        classes: 'bg-azure-blue hover:bg-azure-blue-dark text-white font-semibold py-1 px-3 rounded shadow',
+                        text: 'Next'
+                    }
+                ]
+            });
+            
+            tour.addStep({
+                id: 'settings',
+                text: 'Configure your API keys and application settings here.',
+                attachTo: {
+                    element: '#settings-link',
+                    on: 'bottom'
+                },
+                buttons: [
+                    {
+                        action() {
+                            return tour.back();
+                        },
+                        classes: 'bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-1 px-3 rounded shadow',
+                        text: 'Back'
+                    },
+                    {
+                        action() {
+                            return tour.next();
+                        },
+                        classes: 'bg-azure-blue hover:bg-azure-blue-dark text-white font-semibold py-1 px-3 rounded shadow',
+                        text: 'Next'
+                    }
+                ]
+            });
+            
+            tour.addStep({
+                id: 'menu',
+                text: 'Access quick actions like clearing the cache from this menu.',
+                attachTo: {
+                    element: '#menu-button',
+                    on: 'bottom'
+                },
+                buttons: [
+                    {
+                        action() {
+                            return tour.back();
+                        },
+                        classes: 'bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-1 px-3 rounded shadow',
+                        text: 'Back'
+                    },
+                    {
+                        action() {
+                            return tour.complete();
+                        },
+                        classes: 'bg-azure-blue hover:bg-azure-blue-dark text-white font-semibold py-1 px-3 rounded shadow',
+                        text: 'Finish'
+                    }
+                ]
+            });
+            
+            // Check if it's the user's first visit (using localStorage)
+            const hasVisitedBefore = localStorage.getItem('hasVisitedBefore');
+            if (!hasVisitedBefore) {
+                localStorage.setItem('hasVisitedBefore', 'true');
+                // Start the tour for first-time visitors after a short delay
+                setTimeout(() => tour.start(), 1000);
+            }
+            
+            // Add a button to start the tour manually
+            const startTourButton = document.getElementById('start-tour-button');
+            if (startTourButton) {
+                startTourButton.addEventListener('click', function() {
+                    tour.start();
+                });
+            }
+        });
+    </script>
+</body>
+</html>

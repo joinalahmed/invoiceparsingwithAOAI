@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Azure AI | Document Intelligence</title>
+    <title>Aivar | Document Extraction Playground</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
     <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
     <link rel="apple-touch-icon-precomposed" href="/static/apple-touch-icon-precomposed.png">
@@ -31,15 +32,50 @@
 </head>
 <body class="bg-gray-50 min-h-screen flex flex-col">
     <!-- Azure-style header -->
-    <header class="bg-azure-blue text-white p-2 flex items-center shadow-md">
+    <header class="bg-azure-blue text-white p-2 flex items-center justify-between shadow-md">
         <div class="flex items-center">
             <svg class="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M21 8V20.9932C21 21.5501 20.5552 22 20.0066 22H3.9934C3.44495 22 3 21.556 3 21.0082V2.9918C3 2.45531 3.4487 2 4.00221 2H14.9968L21 8Z" stroke="currentColor" stroke-width="2"/>
                 <path d="M21 8H15V2" stroke="currentColor" stroke-width="2"/>
             </svg>
-            <span class="font-semibold">Azure AI | Document Intelligence + GPT-4o Data Extraction Demo</span>
+            <span class="font-semibold">Aivar | Document Extraction Playground</span>
         </div>
         
+        <!-- Settings Menu -->
+        <div class="relative" x-data="{ settingsOpen: false }">
+            <button @click="settingsOpen = !settingsOpen" class="flex items-center text-white hover:text-gray-200 focus:outline-none">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+                <span class="ml-1">Settings</span>
+            </button>
+            
+            <div x-show="settingsOpen" @click.away="settingsOpen = false" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 py-1" x-transition:enter="transition ease-out duration-100" x-transition:enter-start="transform opacity-0 scale-95" x-transition:enter-end="transform opacity-100 scale-100" x-transition:leave="transition ease-in duration-75" x-transition:leave-start="transform opacity-100 scale-100" x-transition:leave-end="transform opacity-0 scale-95" style="display: none;">
+                
+                <!-- Clear cache for current file (if one is selected) -->
+                {% if uploaded_file_path %}
+                <form method="POST" action="/clear-cache/{{ uploaded_file_path }}" class="block w-full">
+                    <button type="submit" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left">
+                        <svg class="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                        Clear Current File Cache
+                    </button>
+                </form>
+                {% endif %}
+                
+                <!-- Clear all cache -->
+                <form method="POST" action="/clear-cache" class="block w-full">
+                    <button type="submit" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left">
+                        <svg class="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                        Clear All Cache
+                    </button>
+                </form>
+            </div>
+        </div>
     </header>
     
     <!-- Main content area -->
@@ -47,12 +83,12 @@
         <!-- Left sidebar -->
         <div class="w-full md:w-80 bg-white border-r border-gray-200 flex flex-col overflow-hidden">
             <div class="p-4 border-b border-gray-200">
-                <h2 class="text-lg font-semibold text-gray-700">Document Intelligence</h2>
-                <p class="text-xs text-gray-500 mt-1">Extract structured data from invoices</p>
+                <h2 class="text-lg font-semibold text-gray-700">Document Extraction Playground</h2>
+                <p class="text-xs text-gray-500 mt-1">Extract structured data from invoices using Bedrock Data Automation, Textract, Claude Sonnet</p>
             </div>
             
             <!-- Upload section -->
-            <div class="p-4 border-b border-gray-200">
+            <div class="p-4 border-b border-gray-200" id="file-upload-container">
                 <h3 class="text-sm font-semibold text-gray-700 mb-3">Upload Invoice</h3>
                 <form action="/upload" method="post" enctype="multipart/form-data" class="space-y-2">
                     <div class="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-md p-4 hover:border-azure-blue transition-colors" id="drop-zone">
@@ -81,7 +117,7 @@
                         </div>
                         <input type="file" name="file" accept=".pdf" class="hidden" id="file-input" required>
                     </div>
-                    <button type="submit" class="w-full bg-azure-blue text-white py-2 px-3 rounded-md hover:bg-azure-blue-dark transition duration-200 flex items-center justify-center text-sm">
+                    <button type="submit" class="w-full bg-azure-blue text-white py-2 px-3 rounded-md hover:bg-azure-blue-dark transition duration-200 flex items-center justify-center text-sm" data-tooltip="Upload your invoice file for processing">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
                         </svg>
@@ -165,8 +201,8 @@
                                 <input type="hidden" name="file_path" value="{{ uploaded_file_path }}">
                                 
                                 <div class="flex space-x-4 items-center mt-4">
-                                    <div class="relative inline-block" x-data="{ open: false }">
-                                        <button type="button" @click="open = !open" class="flex items-center justify-between py-3 px-6 bg-white border border-gray-300 rounded-lg shadow-sm hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-azure-blue focus:ring-opacity-50 text-gray-700 font-medium transition duration-200" style="min-width: 220px;">
+                                    <div class="relative inline-block" x-data="{ open: false }" id="processing-method-container">
+                                        <button type="button" @click="open = !open" class="flex items-center justify-between py-3 px-6 bg-white border border-gray-300 rounded-lg shadow-sm hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-azure-blue focus:ring-opacity-50 text-gray-700 font-medium transition duration-200" style="min-width: 220px;" data-tooltip="Select how you want to process the invoice">
                                             <div class="flex items-center">
                                                 <svg class="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
@@ -183,38 +219,38 @@
                                             <div class="p-2">
                                                 <p class="text-sm font-semibold text-gray-700 px-3 py-2 border-b">Processing Method</p>
                                                 
-                                                <!-- Option 1 -->
+                                                <!-- Option 1: Bedrock Claude Sonnet -->
                                                 <label class="block px-3 py-2 hover:bg-gray-50 rounded-md cursor-pointer">
-                                                    <input type="radio" name="processing_method" value="di_gpt_image" class="hidden processing-method-input">
+                                                    <input type="radio" name="processing_method" value="bedrock_claude_sonnet" class="hidden processing-method-input" checked>
                                                     <div class="flex items-center">
                                                         <div class="w-4 h-4 rounded-full border border-gray-300 flex items-center justify-center mr-2 processing-method-radio"></div>
                                                         <div>
-                                                            <span class="text-sm font-medium text-gray-800">DI Parse + GPT-4o with Image</span>
-                                                            <p class="text-xs text-gray-500">Parse with DI, then GPT-4o with image</p>
+                                                            <span class="text-sm font-medium text-gray-800">Amazon Bedrock Claude Sonnet</span>
+                                                            <p class="text-xs text-gray-500">Process invoice directly with Claude Sonnet 3.5</p>
+                                                        </div>
+                                                    </div>
+                                                </label>
+
+                                                <!-- Option 2: Bedrock Data Automation + Claude -->
+                                                <label class="block px-3 py-2 hover:bg-gray-50 rounded-md cursor-pointer">
+                                                    <input type="radio" name="processing_method" value="bedrock_data_automation" class="hidden processing-method-input">
+                                                    <div class="flex items-center">
+                                                        <div class="w-4 h-4 rounded-full border border-gray-300 flex items-center justify-center mr-2 processing-method-radio"></div>
+                                                        <div>
+                                                            <span class="text-sm font-medium text-gray-800">Bedrock Data Automation + Claude</span>
+                                                            <p class="text-xs text-gray-500">Pre-process with BDA, then Claude with image</p>
                                                         </div>
                                                     </div>
                                                 </label>
                                                 
-                                                <!-- Option 2 -->
+                                                <!-- Option 3: Textract + Claude -->
                                                 <label class="block px-3 py-2 hover:bg-gray-50 rounded-md cursor-pointer">
-                                                    <input type="radio" name="processing_method" value="di_gpt_no_image" class="hidden processing-method-input">
+                                                    <input type="radio" name="processing_method" value="textract_claude" class="hidden processing-method-input">
                                                     <div class="flex items-center">
                                                         <div class="w-4 h-4 rounded-full border border-gray-300 flex items-center justify-center mr-2 processing-method-radio"></div>
                                                         <div>
-                                                            <span class="text-sm font-medium text-gray-800">DI Parse + GPT-4o (No Image)</span>
-                                                            <p class="text-xs text-gray-500">Parse with DI, then GPT-4o without image</p>
-                                                        </div>
-                                                    </div>
-                                                </label>
-                                                
-                                                <!-- Option 3 -->
-                                                <label class="block px-3 py-2 hover:bg-gray-50 rounded-md cursor-pointer">
-                                                    <input type="radio" name="processing_method" value="gpt_only" class="hidden processing-method-input">
-                                                    <div class="flex items-center">
-                                                        <div class="w-4 h-4 rounded-full border border-gray-300 flex items-center justify-center mr-2 processing-method-radio"></div>
-                                                        <div>
-                                                            <span class="text-sm font-medium text-gray-800">GPT-4o with Image Only</span>
-                                                            <p class="text-xs text-gray-500">Send image directly to GPT-4o</p>
+                                                            <span class="text-sm font-medium text-gray-800">Amazon Textract + Claude</span>
+                                                            <p class="text-xs text-gray-500">Extract with Textract OCR, then Claude with image</p>
                                                         </div>
                                                     </div>
                                                 </label>
@@ -222,19 +258,27 @@
                                         </div>
                                     </div>
                                     
-                                    <button type="submit" id="run-analysis-btn" class="bg-gray-400 text-white py-3 px-6 rounded-lg font-medium shadow-md transition duration-200 focus:outline-none focus:ring-2 focus:ring-azure-blue focus:ring-opacity-50 flex items-center justify-center cursor-not-allowed" disabled>
-                                        <!-- Default icon (play button) -->
-                                        <svg id="run-icon" class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        </svg>
-                                        <!-- Loading spinner (hidden by default) -->
-                                        <svg id="loading-spinner" class="w-5 h-5 mr-2 animate-spin hidden" fill="none" viewBox="0 0 24 24">
-                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        <span id="button-text">Run Analysis</span>
-                                    </button>
+                                    <div class="flex space-x-3">
+                                        <button type="submit" id="run-analysis-btn" class="bg-gray-400 text-white py-3 px-6 rounded-lg font-medium shadow-md transition duration-200 focus:outline-none focus:ring-2 focus:ring-azure-blue focus:ring-opacity-50 flex items-center justify-center cursor-not-allowed" disabled>
+                                            <!-- Default icon (play button) -->
+                                            <svg id="run-icon" class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                            </svg>
+                                            <!-- Loading spinner (hidden by default) -->
+                                            <svg id="loading-spinner" class="w-5 h-5 mr-2 animate-spin hidden" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            <span id="button-text">Run Analysis</span>
+                                        </button>
+                                    
+                                        <a href="/compare/{{ uploaded_file_path }}" class="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-lg shadow-sm transition duration-200 flex items-center justify-center" title="Compare All Processing Methods">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                            </svg>
+                                        </a>
+                                    </div>
                                 </div>
                             </form>
                         </div>
@@ -270,7 +314,54 @@
                         <div class="bg-white border border-gray-200 rounded-md shadow-sm overflow-hidden h-full">
                             <div class="border-b border-gray-200 px-4 py-3 flex justify-between items-center bg-azure-blue-light">
                                 <h3 class="text-sm font-medium text-gray-700">Extracted Invoice Data</h3>
-                                <span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">Successfully Analyzed</span>
+                                <div class="flex space-x-2 items-center">
+                                    {% if result %}
+                                    <button id="view-json-btn" class="text-xs px-3 py-1 bg-azure-blue text-white rounded hover:bg-azure-blue-dark transition-colors" 
+                                            onclick="showJsonModal()">View JSON</button>
+                                    {% endif %}
+                                    <span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">Successfully Analyzed</span>
+                                    {% if processing_time is defined %}
+                                    <span class="text-xs px-2 py-1 bg-gray-100 text-gray-800 rounded-full flex items-center">
+                                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                        {% if processing_method == 'bedrock_claude_sonnet' %}
+                                            C.Sonnet: {{ processing_time|round(2) }}s
+                                        {% elif processing_method == 'bedrock_data_automation' %}
+                                            BDA+Claude: {{ processing_time|round(2) }}s
+                                        {% elif processing_method == 'textract_claude' %}
+                                            Textract+Claude: {{ processing_time|round(2) }}s
+                                        {% else %}
+                                            {{ processing_time|round(2) }}s
+                                        {% endif %}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- JSON Modal -->
+                            <div id="json-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+                                <div class="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col">
+                                    <div class="border-b border-gray-200 px-6 py-3 flex justify-between items-center">
+                                        <h3 class="font-medium text-gray-700">JSON Response</h3>
+                                        <div class="flex space-x-2">
+                                            <button id="copy-json-btn" class="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors">
+                                                Copy to Clipboard
+                                            </button>
+                                            <a id="download-json-btn" href="#" class="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors">
+                                                Download JSON
+                                            </a>
+                                            <button onclick="hideJsonModal()" class="text-gray-500 hover:text-gray-700">
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="p-6 overflow-auto flex-grow">
+                                        <pre id="json-content" class="bg-gray-50 p-4 rounded text-sm overflow-auto max-h-[calc(90vh-130px)]" style="white-space: pre-wrap;">{% if json_result is defined %}{{ json_result | tojson(indent=2) }}{% else %}{% if result %}{{ result | tojson(indent=2) }}{% else %}No data available{% endif %}{% endif %}</pre>
+                                    </div>
+                                </div>
                             </div>
                             <div class="p-4 overflow-auto h-[800px]">
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -278,7 +369,7 @@
                                     <div class="border border-gray-200 rounded-md p-4">
                                         <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">
                                             <svg class="w-4 h-4 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                             </svg>
                                             Seller Information
                                         </h4>
@@ -679,8 +770,26 @@
                         {% elif error %}
                         <!-- Error message -->
                         <div class="bg-white border border-red-200 rounded-md shadow-sm overflow-hidden h-full">
-                            <div class="border-b border-red-200 px-4 py-3 bg-red-50">
+                            <div class="border-b border-red-200 px-4 py-3 bg-red-50 flex justify-between items-center">
                                 <h3 class="text-sm font-medium text-red-700">Error Processing Invoice</h3>
+                                <div class="flex space-x-2 items-center">
+                                    {% if processing_time is defined %}
+                                    <span class="text-xs px-2 py-1 bg-gray-100 text-gray-800 rounded-full flex items-center">
+                                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                        {% if processing_method == 'bedrock_claude_sonnet' %}
+                                            C.Sonnet: {{ processing_time|round(2) }}s
+                                        {% elif processing_method == 'bedrock_data_automation' %}
+                                            BDA+Claude: {{ processing_time|round(2) }}s
+                                        {% elif processing_method == 'textract_claude' %}
+                                            Textract+Claude: {{ processing_time|round(2) }}s
+                                        {% else %}
+                                            {{ processing_time|round(2) }}s
+                                        {% endif %}
+                                    </span>
+                                    {% endif %}
+                                </div>
                             </div>
                             <div class="p-4">
                                 <p class="text-sm text-red-600">{{ error }}</p>
@@ -974,6 +1083,62 @@
             // Initial check
             updateButtonState();
             
+            // Set default processing method to Bedrock Claude Sonnet
+            const bedrockSonnetInput = document.querySelector('input[value="bedrock_claude_sonnet"]');
+            if (bedrockSonnetInput) {
+                bedrockSonnetInput.checked = true;
+                
+                // Trigger the change event to update the UI
+                const event = new Event('change');
+                bedrockSonnetInput.dispatchEvent(event);
+                
+                // Update the dropdown text
+                const label = bedrockSonnetInput.closest('label').querySelector('.text-sm.font-medium').textContent;
+                processingMethodText.textContent = label;
+                
+                // Update the radio button visual
+                const index = Array.from(processingMethodInputs).indexOf(bedrockSonnetInput);
+                if (index >= 0) {
+                    processingMethodRadios[index].innerHTML = '<div class="w-2 h-2 rounded-full bg-azure-blue"></div>';
+                }
+            }
+            
+            // JSON Modal functions
+            window.showJsonModal = function() {
+                document.getElementById('json-modal').classList.remove('hidden');
+                document.body.style.overflow = 'hidden'; // Prevent scrolling
+            }
+            
+            window.hideJsonModal = function() {
+                document.getElementById('json-modal').classList.add('hidden');
+                document.body.style.overflow = 'auto'; // Allow scrolling again
+            }
+            
+            // Copy JSON to clipboard
+            document.getElementById('copy-json-btn')?.addEventListener('click', function() {
+                const jsonContent = document.getElementById('json-content').innerText;
+                navigator.clipboard.writeText(jsonContent).then(function() {
+                    alert('JSON copied to clipboard!');
+                }, function(err) {
+                    console.error('Could not copy text: ', err);
+                });
+            });
+            
+            // Download JSON
+            document.getElementById('download-json-btn')?.addEventListener('click', function(e) {
+                e.preventDefault();
+                const jsonContent = document.getElementById('json-content').innerText;
+                const blob = new Blob([jsonContent], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'invoice_data.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+            
             // Handle form submission and show progress indicators
             const analyzeForm = document.querySelector('form[action="/analyze"]');
             const runIcon = document.getElementById('run-icon');
@@ -1004,14 +1169,58 @@
                     // Simulate progress updates - in a real implementation, 
                     // this would be updated by server responses
                     let progress = 0;
-                    const steps = [
-                        'Initializing...',
-                        'Extracting text from document...',
-                        'Processing with Document Intelligence...',
-                        'Analyzing with GPT-4o...',
-                        'Formatting results...',
-                        'Almost done...',
-                    ];
+                    
+                    // Get selected processing method
+                    const selectedMethod = Array.from(document.querySelectorAll('.processing-method-input')).find(input => input.checked)?.value || 'bedrock_claude_sonnet';
+                    
+                    // Different steps based on processing method
+                    let steps = [];
+                    
+                    if (selectedMethod === 'bedrock_claude_sonnet') {
+                        steps = [
+                            'Initializing...',
+                            'Preparing document for Claude...',
+                            'Analyzing with Claude 3.5 Sonnet...',
+                            'Extracting invoice data...',
+                            'Structuring information...',
+                            'Validating extracted fields...',
+                            'Formatting results...',
+                            'Almost done...',
+                        ];
+                    } else if (selectedMethod === 'bedrock_data_automation') {
+                        steps = [
+                            'Initializing...',
+                            'Processing with Bedrock Data Automation...',
+                            'Extracting document structure...',
+                            'Analyzing with Claude 3.5 Sonnet...',
+                            'Merging BDA and Claude results...',
+                            'Validating extracted fields...',
+                            'Formatting results...',
+                            'Almost done...',
+                        ];
+                    } else if (selectedMethod === 'textract_claude') {
+                        steps = [
+                            'Initializing...',
+                            'Preparing document for Textract...',
+                            'Extracting text with Textract OCR...',
+                            'Processing extracted text...',
+                            'Analyzing with Claude 3.5 Sonnet...',
+                            'Combining Textract and Claude results...',
+                            'Formatting results...',
+                            'Almost done...',
+                        ];
+                    } else {
+                        steps = [
+                            'Initializing...',
+                            'Preparing document for processing...',
+                            'Extracting text and structure...',
+                            'Analyzing with Claude 3.5 Sonnet...',
+                            'Parsing invoice details...',
+                            'Ensuring data completeness...',
+                            'Formatting results...',
+                            'Almost done...',
+                        ];
+                    }
                     
                     const progressInterval = setInterval(() => {
                         // Choose a random increment between 5-15%
